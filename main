@@ -1,0 +1,137 @@
+"""modul for creating map with films info"""
+
+import folium
+from geopy.geocoders import Nominatim
+from geopy import distance
+from folium.plugins import MarkerCluster
+
+def film_coordinates(year, file):
+    """
+    reading the file and finding films by year
+    returns set of tuples (film_name, coordinates)
+    """
+    film_town_coords = set()
+    geolocator=Nominatim(user_agent='my_pro')
+    coordinates_dict = {}
+    with open(file, 'r', encoding='unicode-escape') as file1:
+        for line in file1:
+            line=line.split('\t')
+            info= line[0][:(line[0].find(")")+1)]
+
+            if len(info)<8:
+                continue
+            film_year = info[-5:-1]
+
+            if film_year != year:
+                continue
+
+            name = info[:-7]
+            try:
+                for i in range(1, len(line)):
+                    if line[i] != '':
+                        town = line[i]
+                        if "\n" in town:
+                            town = town[-2]
+
+                        # ->>> dictionary of coordinates to save time
+                        if town not in coordinates_dict.values():
+                            location = geolocator.geocode(town)
+                            coordinates = (location.latitude, location.longitude)
+                            coordinates_dict[town] = coordinates
+                        else:
+                            coordinates = coordinates_dict[town]
+                        break
+            except:
+                continue
+
+            # ->>> set of filtered films and their coordinates
+            film_town_coords.add((name, coordinates))
+
+    return film_town_coords
+
+def nearest(my, film_coords):
+    """
+    creating the list of 10 or less nearest films from the current address
+    calculating with distance.distance
+    return list of nearest films
+    """
+
+    dist_list = []
+    for element1 in film_coords:
+        coord= element1[1]
+        film = element1[0]
+        lat = coord[0]
+        lng = coord[1]
+        distance1 = float(str(distance.distance(coord, my))[:-3])
+        dist_list.append((distance1, film, lat, lng))    #створення списку
+
+    dist_list.sort(key = lambda x:x[0])   #сортування
+
+    if len(dist_list) > 10:
+        dist_list = dist_list[:11]
+    for i, _ in enumerate(dist_list):
+        dist_list[i] = dist_list[i][1:]
+    return dist_list
+
+
+def creating_map(dist_list, my):
+    """
+    main part of creating the map
+    """
+    my=my.split()
+    lat=float(my[0][:-1])
+    lng = float(my[1])
+    map = folium.Map(location=[lat, lng], zoom_start=5)
+
+    # layer with info about coordinates
+    point_layer = folium.FeatureGroup(name='coordinates')
+    for film, lat, lng in dist_list:
+        point_layer.add_child(folium.CircleMarker(location=[lat, lng], radius=10,
+        popup=" Lat: " + str(lat) + " , Long: " + str(lng),
+            tooltip=" Lat: " + str(lat) + " , Long: " + str(lng),
+            fill=True,  # Set fill to True
+        color='red',
+        fill_opacity=1.0)).add_to(map)
+
+    dict_of_coords = {}
+    for element in dist_list:
+        coord = str(element[1])+","+str(element[2])
+        film = element[0]
+        if coord not in dict_of_coords:
+            dict_of_coords[coord] = [film]
+        else:
+            dict_of_coords[coord].append(film)
+
+    #layer with info about films
+    info_layer = folium.FeatureGroup(name='film_names')
+    for item in dict_of_coords.items():
+        coord = item[0].split(",")
+        lat = float(coord[0])
+        lng=float(coord[1])
+        towns = ", ".join(item[1])
+        info_layer.add_child(folium.CircleMarker(location=[lat, lng], popup=towns)).add_to(map)
+
+    locations =[]
+    for value in dict_of_coords.keys():
+        coord = value.split(',')
+        lat = float(coord[0])
+        lng=float(coord[1])
+        locations.append((lat, lng))
+    marker_cluster = MarkerCluster(locations)
+
+    marker_cluster.add_to(map)
+    map.add_child(folium.LayerControl())
+    map.add_child(point_layer)
+    map.add_child(info_layer)
+
+    map.save('Map_films4.html')
+    print('map is created')
+
+
+if __name__=="__main__":
+    file = input()
+    year = input() #str
+    my_coordinate = input() # sample of input: '48.314775, 25.082925'
+
+
+    creating_map(nearest(my_coordinate, film_coordinates(year, file)), my_coordinate)
