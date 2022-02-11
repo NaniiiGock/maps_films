@@ -10,6 +10,7 @@ def film_coordinates(year, file):
     reading the file and finding films by year
     returns set of tuples (film_name, coordinates)
     """
+    print('start')
     film_town_coords = set()
     geolocator=Nominatim(user_agent='my_pro')
     coordinates_dict = {}
@@ -68,7 +69,7 @@ def nearest(my, film_coords):
     dist_list.sort(key = lambda x:x[0])   #сортування
 
     if len(dist_list) > 10:
-        dist_list = dist_list[:11]
+        dist_list = dist_list[:10]
     for i, _ in enumerate(dist_list):
         dist_list[i] = dist_list[i][1:]
     return dist_list
@@ -103,20 +104,18 @@ def creating_map(dist_list, my):
             dict_of_coords[coord].append(film)
 
     #layer with info about films
+    locations =[]
     info_layer = folium.FeatureGroup(name='film_names')
     for item in dict_of_coords.items():
         coord = item[0].split(",")
         lat = float(coord[0])
         lng=float(coord[1])
-        towns = ", ".join(item[1])
-        info_layer.add_child(folium.CircleMarker(location=[lat, lng], popup=towns)).add_to(map)
+        towns = item[1]
+        for i in range(len(towns)):
+            info_layer.add_child(folium.CircleMarker(location=[lat+0.1*i, lng-0.1*i], 
+            popup=towns[i])).add_to(map)
+            locations.append((lat+0.1*i, lng-0.1*i))
 
-    locations =[]
-    for value in dict_of_coords.keys():
-        coord = value.split(',')
-        lat = float(coord[0])
-        lng=float(coord[1])
-        locations.append((lat, lng))
     marker_cluster = MarkerCluster(locations)
 
     marker_cluster.add_to(map)
@@ -129,9 +128,15 @@ def creating_map(dist_list, my):
 
 
 if __name__=="__main__":
-    file = input()
-    year = input() #str
-    my_coordinate = input() # sample of input: '48.314775, 25.082925'
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('year')
+    parser.add_argument('lat')
+    parser.add_argument('lng')
+    parser.add_argument('file')
+    args = parser.parse_args()
 
-
-    creating_map(nearest(my_coordinate, film_coordinates(year, file)), my_coordinate)
+    my_coordinats = str(args.lat) + ", "+str(args.lng)
+    film_year = str(args.year)
+    file_path = args.file
+    creating_map(nearest(my_coordinats, film_coordinates(film_year, file_path)), my_coordinats)
