@@ -14,3 +14,7 @@ html map with 3 layers:
 
 --- the layer for clastarisation of points
 
+In result the user can find the nearest places to him,
+see their coordinates,
+what films were shooted there and 
+with a small zoom you can see how many points are in the area.
